@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Redimensionar Imagens (Portable)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 980px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; flex: 1; min-width: 320px; }
+    label { display:block; margin-top: 10px; font-weight: 600; }
+    select, input, button { width: 100%; padding: 10px; margin-top: 6px; }
+    button { cursor:pointer; font-weight: 700; }
+    pre { background: #0b1020; color: #d6e7ff; padding: 12px; border-radius: 12px; overflow:auto; }
+    .small { font-size: 12px; color:#555; }
+  </style>
+</head>
+<body>
+  <h1>Redimensionar Imagens (Portable)</h1>
+  <p class="small">
+    Use <b>Cover</b> para preencher e cortar (bom para thumbnails) ou <b>Contain</b> para manter 100% da imagem (sem corte).
+    Na versão portable, as pastas ficam ao lado do executável: <b>Imagens originais</b> e <b>Novas imagens</b>.
+  </p>
+
+  <div class="row">
+    <div class="card">
+      <h2>1) Processar em lote (pasta “Imagens originais”)</h2>
+
+      <label>Preset</label>
+      <select id="presetBatch"></select>
+
+      <div id="customBatch" style="display:none;">
+        <label>Largura</label>
+        <input id="wBatch" type="number" min="1" placeholder="ex: 1280"/>
+
+        <label>Altura</label>
+        <input id="hBatch" type="number" min="1" placeholder="ex: 720"/>
+
+        <label>Min (MB) – opcional</label>
+        <input id="minBatch" type="number" step="0.1" min="0" placeholder="ex: 1.0"/>
+
+        <label>Max (MB) – opcional</label>
+        <input id="maxBatch" type="number" step="0.1" min="0" placeholder="ex: 1.5"/>
+      </div>
+
+      <label>Encaixe (fit)</label>
+      <select id="fitBatch">
+        <option value="cover">Cover (corta e preenche)</option>
+        <option value="contain">Contain (sem corte)</option>
+      </select>
+
+      <button onclick="runBatch()">Rodar lote</button>
+      <pre id="outBatch">Aguardando...</pre>
+    </div>
+
+    <div class="card">
+      <h2>2) Upload pelo navegador</h2>
+
+      <label>Arquivos</label>
+      <input id="files" type="file" accept="image/*" multiple />
+
+      <label>Preset</label>
+      <select id="presetUpload"></select>
+
+      <div id="customUpload" style="display:none;">
+        <label>Largura</label>
+        <input id="wUp" type="number" min="1" placeholder="ex: 1280"/>
+
+        <label>Altura</label>
+        <input id="hUp" type="number" min="1" placeholder="ex: 720"/>
+
+        <label>Min (MB) – opcional</label>
+        <input id="minUp" type="number" step="0.1" min="0" placeholder="ex: 1.0"/>
+
+        <label>Max (MB) – opcional</label>
+        <input id="maxUp" type="number" step="0.1" min="0" placeholder="ex: 1.5"/>
+      </div>
+
+      <label>Encaixe (fit)</label>
+      <select id="fitUpload">
+        <option value="cover">Cover (corta e preenche)</option>
+        <option value="contain">Contain (sem corte)</option>
+      </select>
+
+      <button onclick="runUpload()">Enviar e processar</button>
+      <pre id="outUpload">Aguardando...</pre>
+    </div>
+  </div>
+
+<script>
+  const presets = {{ presets | tojson }};
+  const presetBatch = document.getElementById("presetBatch");
+  const presetUpload = document.getElementById("presetUpload");
+
+  function fillPresets(selectEl) {
+    selectEl.innerHTML = "";
+    for (const [k, label] of Object.entries(presets)) {
+      const opt = document.createElement("option");
+      opt.value = k;
+      opt.textContent = label;
+      selectEl.appendChild(opt);
+    }
+  }
+
+  fillPresets(presetBatch);
+  fillPresets(presetUpload);
+
+  function toggleCustom(selectEl, customDivId) {
+    const div = document.getElementById(customDivId);
+    div.style.display = (selectEl.value === "custom") ? "block" : "none";
+  }
+
+  presetBatch.addEventListener("change", () => toggleCustom(presetBatch, "customBatch"));
+  presetUpload.addEventListener("change", () => toggleCustom(presetUpload, "customUpload"));
+
+  toggleCustom(presetBatch, "customBatch");
+  toggleCustom(presetUpload, "customUpload");
+
+  function pretty(json) { return JSON.stringify(json, null, 2); }
+
+  async function runBatch() {
+    const payload = {
+      preset: presetBatch.value,
+      fit: document.getElementById("fitBatch").value,
+    };
+
+    if (payload.preset === "custom") {
+      payload.width = Number(document.getElementById("wBatch").value || 0);
+      payload.height = Number(document.getElementById("hBatch").value || 0);
+      payload.min_mb = document.getElementById("minBatch").value || null;
+      payload.max_mb = document.getElementById("maxBatch").value || null;
+    }
+
+    document.getElementById("outBatch").textContent = "Processando...";
+    const res = await fetch("/batch", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    document.getElementById("outBatch").textContent = pretty(data);
+  }
+
+  async function runUpload() {
+    const files = document.getElementById("files").files;
+    if (!files.length) {
+      document.getElementById("outUpload").textContent = "Selecione ao menos 1 imagem.";
+      return;
+    }
+
+    const fd = new FormData();
+    for (const f of files) fd.append("files", f);
+
+    fd.append("preset", presetUpload.value);
+    fd.append("fit", document.getElementById("fitUpload").value);
+
+    if (presetUpload.value === "custom") {
+      fd.append("width", document.getElementById("wUp").value || 0);
+      fd.append("height", document.getElementById("hUp").value || 0);
+      fd.append("min_mb", document.getElementById("minUp").value || "");
+      fd.append("max_mb", document.getElementById("maxUp").value || "");
+    }
+
+    document.getElementById("outUpload").textContent = "Enviando e processando...";
+    const res = await fetch("/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    document.getElementById("outUpload").textContent = pretty(data);
+  }
+</script>
+</body>
+</html>

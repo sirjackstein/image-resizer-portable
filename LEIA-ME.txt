@@ -1,0 +1,16 @@
+REDIMENSIONADOR DE IMAGENS (PORTABLE)
+
+Como usar (usuário final):
+1) Coloque as imagens na pasta: "Imagens originais"
+2) Dê duplo clique em: "Redimensionador.exe"
+3) O painel abre automaticamente no navegador
+4) Clique em "Rodar lote" (ou use Upload)
+5) As imagens prontas ficam na pasta: "Novas imagens"
+
+Observações:
+- Cover = preenche e corta (ótimo para thumbnail)
+- Contain = sem corte (fundo desfocado preenche o espaço)
+
+Fechar:
+- Feche a aba do navegador.
+- Se o app continuar aberto, finalize pela barra de tarefas.
